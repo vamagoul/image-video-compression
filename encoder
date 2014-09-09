@@ -1,0 +1,126 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <conio.h>
+#include <malloc.h>
+#include "FrameEnLib.h"
+
+extern FILE *test;
+
+int main(int args, char *argv[]) {
+
+	
+	FILE *file_yuv;
+
+	char input_file[120];
+	int YUV_buffer[480][720];	//Buffer that keeps YUV separate in order to save memory allocation
+	int block;	//Pointer to start address of block for DCT
+	int block_to_DCT[8][8];	//Block to be sent for DCT
+	float buffer_coeffs_DCT[8][8];
+	int i, j , point1 , point2, z, iter;
+	unsigned char tmp;
+	char dist[2];
+
+
+	printf("Insert the full filename you want to compress it: ");
+	scanf("%120s",input_file);
+
+	file_yuv = fopen(input_file,"rb");	//opens the file
+
+	if(file_yuv == NULL) {	//check if file is valid
+			
+			 perror("Failed to open file\n");
+			 getch();
+			 return EXIT_FAILURE;
+
+		}
+
+	printf("Mind that the most you compress the most you have distortion\n");
+	printf("Choose the level of compression you want(1:High 2:Moderate 3:Low) ");
+	scanf("%1s",dist);
+
+
+		//Gets the Y data from file
+		for(i=0;i<480;i++){	 
+				
+			for(j=0;j<720;j++){	
+
+				tmp = getc(file_yuv);
+
+				if (tmp == EOF){
+
+					printf("An error occured while reading the file");
+					return EXIT_FAILURE;
+				}
+
+					YUV_buffer[i][j] = tmp - 128; //To make data from 0..255 to -128..127
+				
+			}
+
+
+		}
+
+
+		int(*p_buffer)[720] = YUV_buffer;	//Pass pointer instead of the whole array
+		block_compress(p_buffer,480,720,'o',dist[0]); //Call the function that compress the Y elements and open the file
+
+
+	
+		
+		//Gets the U data from file
+		for(i=0;i<240;i++){	 
+				
+			for(j=0;j<360;j++){	
+
+				tmp = getc(file_yuv);
+
+				if (tmp == EOF){
+
+					printf("An error occured while reading the file");
+					return EXIT_FAILURE;
+				}
+
+					YUV_buffer[i][j] = tmp - 128; //To make data from 0..255 to -128..127
+				
+			}
+
+
+		}
+
+		
+		block_compress(p_buffer,240,360,'-',dist[0]); //Call the function that compress the U elements
+
+
+		//Gets the V data from file
+		for(i=0;i<240;i++){	 
+				
+			for(j=0;j<360;j++){	
+
+				tmp = getc(file_yuv);
+
+				if (tmp == EOF){
+
+					printf("An error occured while reading the file");
+					return EXIT_FAILURE;
+				}
+
+					YUV_buffer[i][j] = tmp - 128; //To make data from 0..255 to -128..127
+				
+			}
+
+
+		}
+
+		
+		block_compress(p_buffer,240,360,'c',dist[0]); //Call the function that compress the V elements and close the file
+
+		
+		fclose(file_yuv);	//Close the file
+
+		printf("Press any key to terminate");
+		getch();	//Wait for user to terminate the program
+
+			
+		return 0;
+
+}
