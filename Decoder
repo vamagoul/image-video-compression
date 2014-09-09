@@ -1,0 +1,256 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <conio.h>
+#include <malloc.h>
+#include "FrameDecLib.h"
+
+
+int main(int args, char *argv[]) {
+
+
+	FILE *test;
+	FILE *file_yuv, *file_yuv_prim;
+
+	char input_file[120];
+	int YUV_buffer[480][720];	//Buffer that keeps YUV separate in order to save memory allocation
+	int i, j ,x, y,iter, point1, point2;
+    signed char tmp;
+	signed char Stream_from_File[128];
+	float * block_to_file;	//8X8 block to write in decompressed file
+	unsigned char * final_array_Y, * final_array_U, * final_array_V;
+	char dist;
+	unsigned char tmp2;
+	float MSE = 0;
+	float PSNR = 0;
+
+	printf("Insert the full filename you want to decompress it: ");
+	scanf("%120s",input_file);
+
+	test = fopen(input_file,"rb");	//opens the file
+	
+	//Take space for the 3 final arrays of pixel values 
+	final_array_Y = (unsigned char *)malloc(sizeof(unsigned char)*480*720);
+	final_array_U = (unsigned char *)malloc(sizeof(unsigned char)*240*360);
+	final_array_V = (unsigned char *)malloc(sizeof(unsigned char)*240*360);
+
+	if(test == NULL) {	//check if file is valid
+	
+			 perror("Failed to open file \".my_formatb\"");
+			 getch();
+			 return EXIT_FAILURE;
+
+	}
+	
+	 dist = getc(test);	//Read the first byte to know what level of compress have been
+
+	//Read and decompress the Y components  
+	for(point1=0;point1<480;point1 = point1 + 8){
+
+		for(point2=0;point2<720;point2 = point2 + 8){
+
+
+					iter = 0;
+
+					while(iter<128){	
+
+						tmp = getc(test); //Read the next byte
+						Stream_from_File[iter] = tmp;
+
+						if(((iter%2) == 0) && (Stream_from_File[iter] < 0)) {	//if the byte is negative and i am in even iterration i reached to the end of byte_stream							
+								break;
+						}
+
+						iter++;
+					}	
+
+					//Here i have read a stream from a block
+					//Sent it to the decoder
+					block_to_file = block_decompress(Stream_from_File,'o',dist); //Call the function that decompress an 8X8 block of elements
+
+
+					//Make final block from int to unsigned char
+					for(i=0;i<8;i++){
+				
+						for(j=0;j<8;j++){
+
+							final_array_Y[(i+point1)*720+(j+point2)] = (int)block_to_file[i*8+j];	//Put in the final array with the order we got the blocks from the primary .yuv file
+
+						}
+
+					}
+
+
+			}
+	}
+
+	
+	
+	//Make the same job for U
+	for(point1=0;point1<240;point1 = point1 + 8){
+
+		for(point2=0;point2<360;point2 = point2 + 8){
+
+
+					iter = 0;
+
+					while(iter<128){	
+
+						tmp = getc(test); //Read the next byte
+						Stream_from_File[iter] = tmp;
+
+						if(((iter%2) == 0) && (Stream_from_File[iter] < 0)) {	//if the byte is negative and i am in even iterration i reached to the end of byte_stream							
+								break;
+						}
+
+						iter++;
+					}	
+
+					//Here i have read a stream from a block
+					//Sent it to the decoder
+					block_to_file = block_decompress(Stream_from_File,'-',dist); //Call the function that decompress an 8X8 block of elements
+
+
+					//Make final block from int to unsigned char
+					for(i=0;i<8;i++){
+				
+						for(j=0;j<8;j++){
+
+							final_array_U[(i+point1)*360+(j+point2)] = (int)block_to_file[i*8+j];	//Put in the final array with the order we got the blocks from the primary .yuv file
+
+						}
+
+					}
+		
+
+			}
+	}
+
+
+
+	//Make the same job for V
+	for(point1=0;point1<240;point1 = point1 + 8){
+
+		for(point2=0;point2<360;point2 = point2 + 8){
+
+
+					iter = 0;
+
+					while(iter<128){	
+
+						tmp = getc(test); //Read the next byte
+						Stream_from_File[iter] = tmp;
+
+						if(((iter%2) == 0) && (Stream_from_File[iter] < 0)) {	//if the byte is negative and i am in even iterration i reached to the end of byte_stream							
+								break;
+						}
+
+						iter++;
+					}	
+
+					//Here i have read a stream from a block
+					//Sent it to the decoder
+					block_to_file = block_decompress(Stream_from_File,'-',dist); //Call the function that decompress an 8X8 block of elements
+
+
+					//Make final block from int to unsigned char
+					for(i=0;i<8;i++){
+				
+						for(j=0;j<8;j++){
+
+							final_array_V[(i+point1)*360+(j+point2)] = (int)block_to_file[i*8+j];	//Put in the final array with the order we got the blocks from the primary .yuv file
+
+						}
+
+					}
+
+
+			}
+	}
+
+		
+		printf("Insert the full filename of your decompressed file: ");
+		scanf("%120s",input_file);
+		
+		file_yuv = fopen(input_file,"wb");
+
+		printf("Insert the full filename of your primary .yuv file to show you the quality of compression of image: ");
+		scanf("%120s",input_file);
+
+		file_yuv_prim = fopen(input_file,"rb");
+
+
+		if(file_yuv == NULL || file_yuv_prim == NULL) {	//check if file is valid
+	
+			 perror("Failed to open file");
+			 getch();
+			 return EXIT_FAILURE;
+
+		}
+
+
+		printf("\n");
+
+		//Write to file first the Y
+		for(i=0;i<480;i++){
+				
+			for(j=0;j<720;j++){
+					
+					tmp2 = fgetc(file_yuv_prim);	//pixel from primary frame
+					putc(final_array_Y[i*720+j] ,file_yuv);	//pixel from decompressed frame
+					MSE += (tmp2 - final_array_Y[i*720+j])*(tmp2 - final_array_Y[i*720+j]);	//Difference for MSE
+			}
+
+		}
+
+		free(final_array_Y);
+
+		//Write to file second the U
+		for(i=0;i<240;i++){ 
+				
+			for(j=0;j<360;j++){
+
+					tmp2 = fgetc(file_yuv_prim);	
+					putc(final_array_U[i*360+j] ,file_yuv);
+					MSE += (tmp2 - final_array_U[i*360+j])*(tmp2 - final_array_U[i*360+j]);	
+			}
+
+		}
+
+		free(final_array_U);
+
+		//Write to file third the V
+		for(i=0;i<240;i++){
+				
+			for(j=0;j<360;j++){
+					
+					tmp2 = fgetc(file_yuv_prim);	
+					putc(final_array_V[i*360+j] ,file_yuv);
+					MSE += (tmp2 - final_array_V[i*360+j])*(tmp2 - final_array_V[i*360+j]);	
+			}
+
+		}
+
+		free(final_array_V);
+
+
+		MSE /= 518400;
+
+		printf("MSE of decompessed image is: %f\n",MSE);
+
+		PSNR = 10*log10((255*255)/MSE);
+
+		printf("PSNR of decompessed image is: %f\n",PSNR);
+
+		fclose(test);
+		fflush(file_yuv);
+		fclose(file_yuv);
+
+
+		printf("Press any key to terminate");
+		getch();	//Wait for user to terminate the program
+
+			
+		return 0;
+
+}
